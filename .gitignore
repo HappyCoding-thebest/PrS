@@ -1,0 +1,40 @@
+# Environments and Python caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local application data and reports
+data/
+.env
+.env.*
+!.env.example
+config.json
+*.log
+*.jsonl
+publications.txt
+profils.txt
+accounts.json
+credentials.json
+config.local.json
+token.json
+tokens.json
+secrets.json
+*.secret
+*.key
+*.token
+*.tokens
+*.cookie
+*.cookies
+*.pem
+*.p12
+*.sqlite3
+*.db
+cookies.txt
+
+# Local editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

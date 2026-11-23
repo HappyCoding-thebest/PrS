@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "ui": {
+    "animations": true
+  },
+  "security": {
+    "password_salt": null,
+    "password_hash": null
+  },
+  "active_account": null,
+  "accounts": []
+}

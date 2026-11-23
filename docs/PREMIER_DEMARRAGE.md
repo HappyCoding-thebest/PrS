@@ -9,6 +9,11 @@ masqué et limite l'accès à trois essais. Après authentification, le tableau
 récapitulatif indique le nombre de profils locaux, le profil sélectionné, le
 nombre de liens et l'état de la connexion.
 
+Après une connexion réussie, l'écran est nettoyé. La bannière CONSTANT est
+réaffichée en haut du menu et de chaque écran d'action; seul le contenu sous
+l'en-tête change. Cela efface l'affichage du terminal, pas le journal enregistré
+localement.
+
 Le menu accepte les numéros affichés. Les saisies inconnues sont refusées sans
 quitter le programme. `[00]` ferme la session. `Ctrl+C` interrompt proprement
 l'application.

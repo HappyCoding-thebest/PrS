@@ -100,7 +100,7 @@ def _remove_account(config: dict) -> None:
 
 def _kind_prompt() -> str | None:
     value = Prompt.ask(
-        "Type de lien : [p]ublication ou [r]profil",
+        "Type de lien : publication [p], profil [r], retour [q]",
         choices=["p", "r", "q"],
         default="q",
         show_choices=False,
@@ -110,13 +110,14 @@ def _kind_prompt() -> str | None:
 
 def _import_links() -> None:
     action = Prompt.ask(
-        "Lien [a]jouté manuellement, [i]mport depuis un fichier, [q]uitter",
+        "Ajouter un lien [a], [i]mporter un fichier ou [q]uitter",
         choices=["a", "i", "q"],
         default="q",
         show_choices=False,
     )
     if action == "q":
         return
+    interface.begin_page("Ajouter un lien" if action == "a" else "Importer des liens")
     kind = _kind_prompt()
     if kind is None:
         return
@@ -135,16 +136,25 @@ def _import_links() -> None:
     except (OSError, UnicodeError) as exc:
         interface.message(f"Import impossible : {exc}", "red")
         return
-    interface.message(f"Import terminé : {accepted} ajouté(s), {rejected} rejeté(s) ou déjà présent(s).", "green")
+    interface.message(
+        f"Import terminé : {accepted} lien(s) ajouté(s), {rejected} ligne(s) rejetée(s) ou déjà enregistrée(s).",
+        "green",
+    )
 
 
 def _browse_links() -> None:
+    kind = _kind_prompt()
+    if kind is None:
+        return
+    title = "Publications enregistrées" if kind == "publication" else "Profils enregistrés"
+    notice: tuple[str, str] | None = None
     while True:
-        kind = _kind_prompt()
-        if kind is None:
-            return
+        interface.begin_page(title)
+        if notice:
+            interface.message(notice[0], notice[1])
+            notice = None
         items = liens.read_links(kind)
-        interface.show_list("Publications enregistrées" if kind == "publication" else "Profils enregistrés", items)
+        interface.show_list(title, items)
         action = Prompt.ask(
             "Action : [r]etirer un lien ou [q]uitter",
             choices=["r", "q"],
@@ -157,18 +167,22 @@ def _browse_links() -> None:
         try:
             removed = liens.remove_link(kind, value)
         except liens.LinkError as exc:
-            interface.message(str(exc), "yellow")
+            notice = (str(exc), "yellow")
             continue
-        interface.message("Lien retiré." if removed else "Ce lien n'est pas enregistré.", "green" if removed else "yellow")
+        notice = (
+            "Lien retiré." if removed else "Ce lien n'est pas enregistré.",
+            "green" if removed else "yellow",
+        )
 
 
 def _show_demo_links() -> None:
     kind = _kind_prompt()
     if kind is None:
         return
+    interface.begin_page("Liens de démonstration")
     examples = liens.demo_links(kind)
     interface.message(
-        "Ces URL utilisent le domaine réservé .invalid : elles sont fictives, ne mènent pas à Instagram et ne sont pas enregistrées.",
+        "Ces liens utilisent le domaine réservé .invalid : ils sont fictifs, ne mènent pas à Instagram et ne sont pas enregistrés.",
         "yellow",
     )
     interface.show_list("Exemples fictifs", examples)
@@ -178,25 +192,34 @@ def _manual_action(kind: str, config: dict) -> None:
     entries = liens.read_links(kind)
     if not entries:
         label = "publications" if kind == "publication" else "profils"
-        interface.message(f"Aucun lien {label} enregistré. Utilise d'abord l'import ou ajoute un lien.", "yellow")
+        interface.message(f"Aucun lien {label} enregistré. Ajoute un lien ou importe un fichier.", "yellow")
         return
     url = random.choice(entries)
     account_name = comptes.active_account(config)
-    action_name = "J'aime" if kind == "publication" else "abonnement"
+    manual_instruction = (
+        "mettre manuellement un J’aime sur la publication"
+        if kind == "publication"
+        else "t’abonner manuellement à ce profil"
+    )
     interface.console.print(f"\n[bold cyan]Lien choisi[/bold cyan] : {url}")
     interface.console.print(f"[bold cyan]Compte actif[/bold cyan] : {('@' + account_name) if account_name else 'aucun'}")
-    interface.message(f"CONSTANT n'effectuera pas le {action_name} : l'action doit être faite manuellement dans Instagram.", "yellow")
+    interface.message(
+        "CONSTANT ne réalise aucune action à ta place. Tu peux "
+        f"{manual_instruction} dans Instagram.",
+        "yellow",
+    )
     started = time.monotonic()
     if not interface.confirm("Ouvrir ce lien dans le navigateur ?"):
         journal.record(account=account_name, operation=f"ouverture_manuelle_{kind}", url=url, status="annulée")
+        interface.message("Ouverture annulée.", "dim")
         return
     opened = instagram_api.open_instagram_url(url)
     if not opened:
         journal.record(account=account_name, operation=f"ouverture_manuelle_{kind}", url=url, status="échec_ouverture")
         interface.message("Impossible d'ouvrir le navigateur. Copie l'URL affichée pour l'ouvrir manuellement.", "red")
         return
-    interface.message("Lien ouvert. Effectue toi-même l'action dans Instagram, puis confirme ci-dessous.", "green")
-    completed = interface.confirm(f"As-tu effectué manuellement le {action_name} ?")
+    interface.message("Lien ouvert. Après ton action manuelle, confirme ci-dessous si tu le souhaites.", "green")
+    completed = interface.confirm("As-tu effectué cette action manuellement ?")
     status = "confirmée_par_utilisateur" if completed else "ouverte_non_confirmée"
     journal.record(
         account=account_name,
@@ -205,6 +228,10 @@ def _manual_action(kind: str, config: dict) -> None:
         status=status,
         duration_ms=int((time.monotonic() - started) * 1000),
         message="Confirmation déclarative; aucune action exécutée par CONSTANT.",
+    )
+    interface.message(
+        "Ta confirmation a été enregistrée. CONSTANT n'a effectué aucune action Instagram.",
+        "dim",
     )
 
 
@@ -280,7 +307,12 @@ def _history() -> None:
                 str(entry.get("url", "")),
             )
         interface.console.print(table)
-    export = Prompt.ask("Exporter l'historique ? [n]on, [c]sv ou [j]son", choices=["n", "c", "j"], default="n", show_choices=False)
+    export = Prompt.ask(
+        "Exporter en [c]SV, en [j]SON ou [n]on ?",
+        choices=["n", "c", "j"],
+        default="n",
+        show_choices=False,
+    )
     if export in {"c", "j"}:
         try:
             destination = journal.export_report("csv" if export == "c" else "json")
@@ -291,34 +323,33 @@ def _history() -> None:
 
 
 def _settings(config: dict) -> None:
-    while True:
-        animations = bool(config.get("ui", {}).get("animations", True))
-        interface.console.print(f"Animations de lancement : {'activées' if animations else 'désactivées'}")
-        action = Prompt.ask(
-            "[a]ctiver/désactiver les animations, changer le [m]ot de passe, ou [q]uitter",
-            choices=["a", "m", "q"],
-            default="q",
-            show_choices=False,
-        )
-        if action == "q":
-            return
-        if action == "a":
-            config.setdefault("ui", {})["animations"] = not animations
-            _save(config)
-            interface.message("Préférence enregistrée.", "green")
-        elif action == "m":
-            from getpass import getpass
+    animations = bool(config.get("ui", {}).get("animations", True))
+    interface.console.print(f"Animations de lancement : {'activées' if animations else 'désactivées'}")
+    action = Prompt.ask(
+        "Animations : [a]ctiver/désactiver, changer le [m]ot de passe ou [q]uitter",
+        choices=["a", "m", "q"],
+        default="q",
+        show_choices=False,
+    )
+    if action == "q":
+        return
+    if action == "a":
+        config.setdefault("ui", {})["animations"] = not animations
+        _save(config)
+        interface.message("Préférence enregistrée.", "green")
+        return
+    from getpass import getpass
 
-            if not auth.verify_local_password(config, getpass("Mot de passe actuel : ")):
-                interface.message("Mot de passe incorrect.", "red")
-                continue
-            try:
-                auth.configure_local_password(config)
-            except RuntimeError as exc:
-                interface.message(str(exc), "yellow")
-                continue
-            _save(config)
-            interface.message("Mot de passe local modifié.", "green")
+    if not auth.verify_local_password(config, getpass("Mot de passe actuel : ")):
+        interface.message("Mot de passe incorrect.", "red")
+        return
+    try:
+        auth.configure_local_password(config)
+    except RuntimeError as exc:
+        interface.message(str(exc), "yellow")
+        return
+    _save(config)
+    interface.message("Mot de passe local modifié.", "green")
 
 
 def _update() -> None:
@@ -426,10 +457,12 @@ def run(argv: list[str] | None = None) -> int:
     try:
         config = configuration.load_config()
     except configuration.ConfigurationError as exc:
+        interface.begin_page("Erreur de configuration")
         interface.message(f"Configuration invalide : {exc}", "red")
         return 2
 
     if args.init:
+        interface.begin_page("Configuration initiale")
         if not auth.password_is_configured(config):
             interface.message("Configuration initiale : crée un mot de passe local de démonstration.", "cyan")
             try:
@@ -441,8 +474,12 @@ def run(argv: list[str] | None = None) -> int:
         interface.message(f"Installation locale initialisée dans {configuration.data_directory()}.", "green")
         return 0
 
-    interface.show_banner(animations=bool(config.get("ui", {}).get("animations", True)))
+    interface.begin_page(
+        "Connexion",
+        animations=bool(config.get("ui", {}).get("animations", True)),
+    )
     if not auth.password_is_configured(config):
+        interface.begin_page("Première configuration")
         interface.message("Première utilisation : définis un mot de passe local. Il n'est envoyé nulle part.", "cyan")
         try:
             auth.configure_local_password(config)
@@ -450,12 +487,14 @@ def run(argv: list[str] | None = None) -> int:
             interface.message(str(exc), "red")
             return 1
         _save(config)
+        interface.begin_page("Connexion")
 
     if not auth.login(config):
         interface.message("Session verrouillée après trois tentatives.", "red")
         return 1
 
     while True:
+        interface.begin_page()
         interface.show_dashboard(
             account_count=len(comptes.list_accounts(config)),
             active_account=comptes.active_account(config),
@@ -466,10 +505,20 @@ def run(argv: list[str] | None = None) -> int:
         interface.show_menu()
         choice = interface.prompt_choice()
         if choice is None:
+            interface.pause()
             continue
-        if not _dispatch(choice, config):
+        if choice == 0:
+            interface.begin_page("Session terminée")
             interface.message("Déconnexion de CONSTANT.", "cyan")
             return 0
+        titles = dict(interface.MENU_OPTIONS)
+        if choice not in titles:
+            interface.begin_page("MENU PRINCIPAL")
+            interface.message("Option inconnue. Choisis un numéro affiché dans le menu.", "yellow")
+            interface.pause()
+            continue
+        interface.begin_page(titles[choice])
+        _dispatch(choice, config)
         interface.pause()
 
 

@@ -132,6 +132,8 @@ def import_links(kind: str, source: Path) -> tuple[int, int]:
         if normalized not in existing:
             existing.append(normalized)
             accepted += 1
+        else:
+            rejected += 1
     save_links(kind, existing)
     return accepted, rejected
 

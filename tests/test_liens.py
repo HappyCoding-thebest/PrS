@@ -1,6 +1,13 @@
 import pytest
 
-from principale.liens import LinkError, add_link, demo_links, normalize_instagram_url, read_links
+from principale.liens import (
+    LinkError,
+    add_link,
+    demo_links,
+    import_links,
+    normalize_instagram_url,
+    read_links,
+)
 
 
 def test_normalizes_valid_publication_and_profile_urls():
@@ -35,3 +42,16 @@ def test_add_link_deduplicates_and_stores_outside_repository(tmp_path, monkeypat
 
 def test_demo_links_use_reserved_invalid_domain():
     assert all(".example.invalid/" in url for url in demo_links("publication"))
+
+
+def test_import_counts_duplicates_as_rejected_lines(tmp_path, monkeypatch):
+    monkeypatch.setenv("CONSTANT_HOME", str(tmp_path / "private"))
+    source = tmp_path / "links.txt"
+    source.write_text(
+        "https://instagram.com/p/ABC/\n"
+        "https://instagram.com/p/ABC/\n"
+        "https://example.com/p/NOPE/\n",
+        encoding="utf-8",
+    )
+
+    assert import_links("publication", source) == (1, 2)

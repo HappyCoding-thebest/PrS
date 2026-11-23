@@ -63,6 +63,14 @@ def show_banner(*, animations: bool = True) -> None:
     console.print(Panel.fit(Text.assemble(title, "\n", subtitle), border_style="bright_cyan", padding=(1, 2)))
 
 
+def begin_page(title: str | None = None, *, animations: bool = False) -> None:
+    if console.is_terminal:
+        console.clear(home=True)
+    show_banner(animations=animations)
+    if title:
+        console.print(Text(title, style="bold bright_magenta"))
+
+
 def show_dashboard(
     *,
     account_count: int,
@@ -80,7 +88,7 @@ def show_dashboard(
     table.add_row("Liens enregistrés", f"{publication_count} publication(s) • {profile_count} profil(s)")
     table.add_row("Connexion Internet", "[green]● disponible[/green]" if online else "[yellow]● indisponible[/yellow]")
     console.print(table)
-    console.print("[dim]Les comptes affichés sont des profils locaux; OAuth Instagram n'est pas configuré.[/dim]")
+    console.print("[dim]Les comptes affichés sont des profils locaux ; OAuth Instagram n'est pas configuré.[/dim]")
 
 
 def show_menu() -> None:

@@ -1,3 +1,5 @@
+from io import StringIO
+
 import principale.interface as interface
 from principale.interface import MENU_OPTIONS
 
@@ -28,3 +30,19 @@ def test_begin_page_clears_content_and_redraws_constant_header(monkeypatch):
         ("header", False),
         ("title", "Gestion des liens"),
     ]
+
+
+def test_full_screen_uses_and_restores_terminal_alternate_buffer(monkeypatch):
+    output = StringIO()
+
+    class FakeConsole:
+        is_terminal = True
+        file = output
+
+    monkeypatch.setattr(interface, "console", FakeConsole())
+    monkeypatch.setenv("TERM", "xterm-256color")
+
+    with interface.full_screen():
+        assert output.getvalue() == "\x1b[?1049h\x1b[3J\x1b[2J\x1b[H"
+
+    assert output.getvalue().endswith("\x1b[?1049l")

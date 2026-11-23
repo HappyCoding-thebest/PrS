@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 
 from rich import box
 from rich.console import Console
@@ -34,6 +35,23 @@ MENU_OPTIONS = (
     (13, "🔄 Mettre à jour CONSTANT"),
     (14, "📖 Aide et documentation"),
 )
+
+
+@contextmanager
+def full_screen() -> Iterator[None]:
+    terminal_name = os.environ.get("TERM", "").casefold()
+    if not console.is_terminal or terminal_name in {"", "dumb"}:
+        yield
+        return
+
+    output = console.file
+    output.write("\x1b[?1049h\x1b[3J\x1b[2J\x1b[H")
+    output.flush()
+    try:
+        yield
+    finally:
+        output.write("\x1b[?1049l")
+        output.flush()
 
 
 def _logo() -> str:

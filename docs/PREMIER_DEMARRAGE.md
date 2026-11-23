@@ -14,6 +14,10 @@ réaffichée en haut du menu et de chaque écran d'action; seul le contenu sous
 l'en-tête change. Cela efface l'affichage du terminal, pas le journal enregistré
 localement.
 
+Dans Termux, le menu s'ouvre dans l'écran alternatif du terminal : l'historique
+de la session n'est plus accessible en faisant défiler vers le haut. En quittant
+CONSTANT, Termux restaure l'écran précédent.
+
 Le menu accepte les numéros affichés. Les saisies inconnues sont refusées sans
 quitter le programme. `[00]` ferme la session. `Ctrl+C` interrompt proprement
 l'application.

@@ -450,6 +450,36 @@ def _dispatch(choice: int, config: dict) -> bool:
     return True
 
 
+def _menu_loop(config: dict) -> int:
+    while True:
+        interface.begin_page()
+        interface.show_dashboard(
+            account_count=len(comptes.list_accounts(config)),
+            active_account=comptes.active_account(config),
+            publication_count=len(liens.read_links("publication")),
+            profile_count=len(liens.read_links("profil")),
+            online=_online(),
+        )
+        interface.show_menu()
+        choice = interface.prompt_choice()
+        if choice is None:
+            interface.pause()
+            continue
+        if choice == 0:
+            interface.begin_page("Session terminée")
+            interface.message("Déconnexion de CONSTANT.", "cyan")
+            return 0
+        titles = dict(interface.MENU_OPTIONS)
+        if choice not in titles:
+            interface.begin_page("MENU PRINCIPAL")
+            interface.message("Option inconnue. Choisis un numéro affiché dans le menu.", "yellow")
+            interface.pause()
+            continue
+        interface.begin_page(titles[choice])
+        _dispatch(choice, config)
+        interface.pause()
+
+
 def run(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Gestionnaire local CONSTANT pour Termux.")
     parser.add_argument("--init", action="store_true", help="Créer les dossiers et configurer le mot de passe local.")
@@ -493,33 +523,8 @@ def run(argv: list[str] | None = None) -> int:
         interface.message("Session verrouillée après trois tentatives.", "red")
         return 1
 
-    while True:
-        interface.begin_page()
-        interface.show_dashboard(
-            account_count=len(comptes.list_accounts(config)),
-            active_account=comptes.active_account(config),
-            publication_count=len(liens.read_links("publication")),
-            profile_count=len(liens.read_links("profil")),
-            online=_online(),
-        )
-        interface.show_menu()
-        choice = interface.prompt_choice()
-        if choice is None:
-            interface.pause()
-            continue
-        if choice == 0:
-            interface.begin_page("Session terminée")
-            interface.message("Déconnexion de CONSTANT.", "cyan")
-            return 0
-        titles = dict(interface.MENU_OPTIONS)
-        if choice not in titles:
-            interface.begin_page("MENU PRINCIPAL")
-            interface.message("Option inconnue. Choisis un numéro affiché dans le menu.", "yellow")
-            interface.pause()
-            continue
-        interface.begin_page(titles[choice])
-        _dispatch(choice, config)
-        interface.pause()
+    with interface.full_screen():
+        return _menu_loop(config)
 
 
 if __name__ == "__main__":
